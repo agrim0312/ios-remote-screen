@@ -27,7 +27,7 @@ browser ── ssh -L ──▶ server Mac 127.0.0.1:8765 ──▶ ios-remote-s
 ## Build (on the server)
 
 ```sh
-git clone https://github.com/agrim0212/ios-remote-screen.git
+git clone https://github.com/agrim0312/ios-remote-screen.git
 cd ios-remote-screen
 swift build -c release
 .build/release/ios-remote-screen --list-devices      # shows attached iPhones
