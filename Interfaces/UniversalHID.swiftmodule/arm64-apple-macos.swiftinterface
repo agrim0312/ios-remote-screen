@@ -1,0 +1,61 @@
+// swift-interface-format-version: 1.0
+// swift-module-flags: -target arm64-apple-macos14.0 -enable-library-evolution -swift-version 5 -module-name UniversalHID
+// Hand-written subset of Apple's private UniversalHID API (CoreDevice.framework/Frameworks), reconstructed
+// with REA from its exported Swift symbols (Xcode 27.1).
+import Foundation
+import Swift
+
+// Runtime metadata shows these are small fixed-layout values (HIDUsage 4 bytes, ReportID 1 byte,
+// HIDReport/DigitizerContact/DigitizerReport 16 bytes), so they are declared @frozen to match the
+// direct calling convention the framework uses for them.
+@frozen public struct HIDUsage {
+  @usableFromInline internal var _page: Swift.UInt16
+  @usableFromInline internal var _usage: Swift.UInt16
+  public init(page: Swift.Int, usage: Swift.Int)
+}
+
+@frozen public struct ReportID {
+  public var rawValue: Swift.UInt8
+}
+
+@frozen public struct HIDReport {
+  @usableFromInline internal var _storage: Foundation.Data
+  public init(bitCount: Swift.Int, id: UniversalHID.ReportID)
+  public var data: Foundation.Data { get }
+  public var count: Swift.Int { get }
+}
+
+public protocol EventReportProtocol {
+  init()
+  var report: UniversalHID.HIDReport { get }
+}
+
+public protocol EventReportDescriptorProtocol {
+  static var reportID: UniversalHID.ReportID { get }
+  static var initialReportBitCount: Swift.Int { get }
+}
+
+@frozen public struct DigitizerContact {
+  @usableFromInline internal var _report: UniversalHID.HIDReport
+  public init()
+  public init(data: Foundation.Data)
+  public static var bitCount: Swift.Int { get }
+  public var index: Swift.Int { get set }
+  public var x: Swift.Double { get set }
+  public var y: Swift.Double { get set }
+  public var touch: Swift.Bool { get set }
+  public var range: Swift.Bool { get set }
+}
+
+@frozen public struct DigitizerReport : UniversalHID.EventReportProtocol, UniversalHID.EventReportDescriptorProtocol {
+  @usableFromInline internal var _report: UniversalHID.HIDReport
+  public static var reportID: UniversalHID.ReportID { get }
+  public static var initialReportBitCount: Swift.Int { get }
+  public init(_report: UniversalHID.HIDReport)
+  public var report: UniversalHID.HIDReport { get set }
+  public var contactCount: Swift.UInt8 { get set }
+  public var contactCountMaximum: Swift.UInt8 { get set }
+  public var contacts: [UniversalHID.DigitizerContact] { get }
+  public mutating func setContact(_: UniversalHID.DigitizerContact, atIndex: Swift.Int)
+  public mutating func setContactIdentity(_: Swift.UInt8, atIndex: Swift.Int)
+}

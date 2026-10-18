@@ -1,0 +1,126 @@
+// swift-interface-format-version: 1.0
+// swift-module-flags: -target arm64-apple-macos14.0 -enable-library-evolution -swift-version 5 -module-name CoreDevice
+// Hand-written subset of Apple's private CoreDevice API, reconstructed with REA from the exported
+// Swift symbols of /Library/Developer/PrivateFrameworks/CoreDevice.framework (Xcode 27.1).
+import CoreGraphics
+import Foundation
+import Swift
+import UniversalHID
+
+public protocol CoreDeviceServiceConnection {}
+
+public struct CoreDeviceService {
+  public static var sharedConnection: any CoreDevice.CoreDeviceServiceConnection { get }
+}
+
+open class DeviceManager {
+  public init(serviceConnection: any CoreDevice.CoreDeviceServiceConnection)
+  public static var shared: CoreDevice.DeviceManager { get }
+  final public func allDevices() -> [CoreDevice.RemoteDevice]
+  open var devices: [Foundation.UUID : CoreDevice.RemoteDevice] { get }
+  open func awaitFullInitialization() async
+}
+
+public struct CoreDeviceError : Swift.Error {}
+
+public protocol DeviceCapabilityProtocol {}
+
+public protocol DeviceCapability {
+  associatedtype ProtocolType
+  associatedtype ImplType
+}
+
+public struct CapabilityStaticMember<A> {}
+
+extension CoreDevice.CapabilityStaticMember where A : CoreDevice.DeviceCapability {
+  public static var universalHidService: CoreDevice.CapabilityStaticMember<CoreDevice.UniversalHIDServiceCapability> { get }
+}
+
+public struct HIDDeviceCapability {}
+
+extension CoreDevice.CapabilityStaticMember where A : CoreDevice.DeviceCapability {
+  public static var hid: CoreDevice.CapabilityStaticMember<CoreDevice.HIDDeviceCapability>.Type { get }
+}
+
+extension CoreDevice.CapabilityStaticMember where A == CoreDevice.HIDDeviceCapability {
+  public static var digitizer: CoreDevice.CapabilityStaticMember<CoreDevice.DigitizerHIDCapability> { get }
+  public static var button: CoreDevice.CapabilityStaticMember<CoreDevice.ButtonHIDCapability> { get }
+}
+
+public enum DigitizerEventType {
+  case start
+  case position
+  case end
+}
+
+public enum DigitizerEdge {
+  case none
+  case top
+  case bottom
+  case left
+  case right
+}
+
+public enum DigitizerTarget {
+  case mainScreen
+}
+
+public enum HIDButtonState {
+  case down
+  case up
+}
+
+public protocol HIDDigitizer : CoreDevice.DeviceCapabilityProtocol {
+  func sendBarrier()
+}
+
+extension CoreDevice.HIDDigitizer {
+  public func send(pointOne: CoreGraphics.CGPoint, pointTwo: CoreGraphics.CGPoint?, eventType: CoreDevice.DigitizerEventType, edge: CoreDevice.DigitizerEdge, target: CoreDevice.DigitizerTarget) throws
+}
+
+public protocol HIDButton : CoreDevice.DeviceCapabilityProtocol {
+  func sendCustomButton(usagePage: Swift.Int, usageCode: Swift.Int, state: CoreDevice.HIDButtonState) throws
+  func sendBarrier()
+}
+
+public struct DigitizerHIDCapability : CoreDevice.DeviceCapability {
+  public typealias ProtocolType = any CoreDevice.HIDDigitizer
+  public typealias ImplType = Any
+}
+
+public struct ButtonHIDCapability : CoreDevice.DeviceCapability {
+  public typealias ProtocolType = any CoreDevice.HIDButton
+  public typealias ImplType = Any
+}
+
+public protocol UniversalHIDService : CoreDevice.DeviceCapabilityProtocol {
+  func send(report: UniversalHID.HIDReport, to: Swift.UInt64) throws(CoreDevice.CoreDeviceError)
+  func removeService(serviceID: Swift.UInt64) async throws(CoreDevice.CoreDeviceError)
+}
+
+extension CoreDevice.UniversalHIDService {
+  public func primaryPointer() async throws(CoreDevice.CoreDeviceError) -> Swift.UInt64?
+  public func primaryKeyboard() async throws(CoreDevice.CoreDeviceError) -> Swift.UInt64?
+  public func createService(usages: [UniversalHID.HIDUsage]) async throws(CoreDevice.CoreDeviceError) -> Swift.UInt64
+}
+
+public struct UniversalHIDServiceCapability : CoreDevice.DeviceCapability {
+  public typealias ProtocolType = any CoreDevice.UniversalHIDService
+  public typealias ImplType = Any
+}
+
+public struct DevicePreparedness {
+  public static var developerDiskImageServicesEnabled: CoreDevice.DevicePreparedness { get }
+}
+
+public struct UsageAssertionOptions {
+  public init(requiredPreparedness: CoreDevice.DevicePreparedness)
+}
+
+open class DeviceUsageAssertion {}
+
+open class RemoteDevice {
+  final public func acquireDeviceUsageAssertion(withReason: Swift.String, options: CoreDevice.UsageAssertionOptions) async throws -> CoreDevice.DeviceUsageAssertion
+  open var deviceIdentifier: Foundation.UUID { get }
+  open func getImplementation<A>(for: CoreDevice.CapabilityStaticMember<A>) async throws -> A.ProtocolType where A : CoreDevice.DeviceCapability
+}
