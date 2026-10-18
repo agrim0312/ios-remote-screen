@@ -66,7 +66,7 @@ swift build -c release
    | Home / App Switcher / Spotlight buttons | Same as on the phone |
    | **Stop session** | Exits the relay on the server, which also ends the SSH session started in step 1 |
 
-   With `--exit-with-stdin`, losing the SSH connection or pressing Ctrl-C also stops the relay, so no process is left running on the server.
+   With `--exit-with-stdin`, losing the SSH connection or pressing Ctrl-C also stops the relay, so no process is left running on the server. Run that `ssh` command in the foreground of a terminal. Started with `ssh -n`, or in the background with stdin closed, the relay sees stdin close at once and exits.
 
 ### Options
 

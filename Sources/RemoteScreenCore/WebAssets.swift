@@ -5,7 +5,7 @@ enum WebAssets {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>iPhone iOS Remote Screen</title>
+<title>iOS Remote Screen</title>
 <style>
   :root { color-scheme: light dark; --bg:#f4f4f6; --fg:#1c1c1e; --muted:#6e6e73; --panel:#ffffff; --border:#d2d2d7; --accent:#0a84ff; }
   @media (prefers-color-scheme: dark) { :root { --bg:#111113; --fg:#f2f2f7; --muted:#98989d; --panel:#1c1c1e; --border:#38383a; } }
@@ -27,7 +27,7 @@ enum WebAssets {
 </head>
 <body>
 <header>
-  <h1>iPhone iOS Remote Screen</h1>
+  <h1>iOS Remote Screen</h1>
   <button data-action="home" title="Cmd-1 in iPhone Mirroring">Home</button>
   <button data-action="appSwitcher" title="Cmd-2 in iPhone Mirroring">App Switcher</button>
   <button data-action="spotlight" title="Cmd-3 in iPhone Mirroring">Spotlight</button>
@@ -100,6 +100,7 @@ enum WebAssets {
   }
 
   function render() {
+    if (stopped) return;
     const now = performance.now();
     if (now - lastFpsAt >= 1000) { fps = frames * 1000 / (now - lastFpsAt); frames = 0; lastFpsAt = now; }
     const parts = [ws && ws.readyState === 1 ? "connected" : "connecting…", `${fps.toFixed(0)} fps`];
