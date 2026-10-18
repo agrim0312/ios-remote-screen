@@ -91,3 +91,21 @@ final class ControlTests: XCTestCase {
         XCTAssertEqual(KeyMap.flags([.command, .shift]), [.maskCommand, .maskShift])
     }
 }
+
+final class LoopbackPolicyTests: XCTestCase {
+    func testAllowsOnlyLoopbackHostsOnAnyPort() {
+        for ok in ["127.0.0.1:8765", "localhost:9765", "LOCALHOST", "[::1]:8765"] { XCTAssertTrue(LoopbackPolicy.allowsHost(ok), ok) }
+        for bad in [nil, "", "evil.example:8765", "127.0.0.1.evil.example", "10.0.0.5:8765"] {
+            XCTAssertFalse(LoopbackPolicy.allowsHost(bad), bad ?? "nil")
+        }
+    }
+
+    func testRejectsCrossSiteWebSocketOrigins() {
+        for ok in [nil, "http://127.0.0.1:8765", "http://localhost:9765", "http://[::1]:8765"] {
+            XCTAssertTrue(LoopbackPolicy.allowsOrigin(ok), ok ?? "nil")
+        }
+        for bad in ["https://evil.example", "http://127.0.0.1.evil.example", "null", "file://"] {
+            XCTAssertFalse(LoopbackPolicy.allowsOrigin(bad), bad)
+        }
+    }
+}

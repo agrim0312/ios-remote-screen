@@ -98,6 +98,15 @@ public final class RelayServer {
     private func route(_ conn: NWConnection, _ req: HTTPRequest, leftover: [UInt8]) {
         guard req.method == "GET" else { return respond(conn, HTTPResponse.text(405, "Method Not Allowed", "GET only")) }
         if req.path == "/healthz" { return respond(conn, HTTPResponse.text(200, "OK", "ok")) }
+        // Blocks DNS rebinding and cross-site WebSocket hijacking: only loopback names may address the
+        // relay (any port, since an SSH forward may use a different local port), and browsers may only
+        // open /ws from a loopback page.
+        guard LoopbackPolicy.allowsHost(req.headers["host"]) else {
+            return respond(conn, HTTPResponse.text(403, "Forbidden", "Host must be 127.0.0.1, localhost or [::1]"))
+        }
+        if req.path == "/ws", !LoopbackPolicy.allowsOrigin(req.headers["origin"]) {
+            return respond(conn, HTTPResponse.text(403, "Forbidden", "cross-origin WebSocket refused"))
+        }
         guard authorized(req) else { return respond(conn, HTTPResponse.text(401, "Unauthorized", "missing or wrong ?token=")) }
         switch req.path {
         case "/":

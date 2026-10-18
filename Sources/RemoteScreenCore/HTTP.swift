@@ -63,3 +63,28 @@ public enum HTTPResponse {
         make(status: status, reason: reason, contentType: "text/plain; charset=utf-8", body: Data(message.utf8))
     }
 }
+
+/// Which Host and Origin values may reach the loopback-only relay.
+public enum LoopbackPolicy {
+    static let names: Set<String> = ["127.0.0.1", "localhost", "[::1]"]
+
+    /// Host header like "127.0.0.1:8765"; the port is not checked because SSH forwards can remap it.
+    public static func allowsHost(_ host: String?) -> Bool {
+        guard let host, !host.isEmpty else { return false }
+        return names.contains(hostname(host).lowercased())
+    }
+
+    /// Origin header like "http://localhost:9765"; absent (non-browser clients) is allowed.
+    public static func allowsOrigin(_ origin: String?) -> Bool {
+        guard let origin else { return true }
+        guard let url = URLComponents(string: origin), let scheme = url.scheme, ["http", "https"].contains(scheme),
+              let host = url.host else { return false }
+        let name = host.contains(":") && !host.hasPrefix("[") ? "[\(host)]" : host
+        return names.contains(name.lowercased())
+    }
+
+    static func hostname(_ hostPort: String) -> String {
+        if hostPort.hasPrefix("["), let end = hostPort.firstIndex(of: "]") { return String(hostPort[...end]) }
+        return String(hostPort.split(separator: ":", maxSplits: 1).first ?? "")
+    }
+}
