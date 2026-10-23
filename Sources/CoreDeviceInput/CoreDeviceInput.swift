@@ -47,6 +47,38 @@ public final class CoreDeviceInput {
     }
     private var connecting = false
     private var lastPoint = CGPoint(x: 0.5, y: 0.5)
+    private var displayID = 0
+    private var rotation = 0
+
+    /// Which display touches go to (0 = main screen, otherwise the CoreDevice display ID, e.g. 2 for a
+    /// foldable's inner screen) and that display's current UI rotation in degrees, so viewer coordinates
+    /// (taken from screenshots in UI orientation) map to the digitizer's native orientation.
+    public func setDisplay(id: Int, rotation: Int) {
+        queue.async {
+            self.displayID = id
+            self.rotation = rotation
+        }
+    }
+
+    private var digitizerTarget: DigitizerTarget {
+        switch displayID {
+        case 1: return .display1
+        case 2: return .display2
+        case 3: return .display3
+        case 4: return .display4
+        default: return .mainScreen
+        }
+    }
+
+    /// Maps a point in the display's current UI orientation to its native (unrotated) orientation.
+    static func native(_ p: CGPoint, rotation: Int) -> CGPoint {
+        switch ((rotation % 360) + 360) % 360 {
+        case 90: return CGPoint(x: p.y, y: 1 - p.x)
+        case 180: return CGPoint(x: 1 - p.x, y: 1 - p.y)
+        case 270: return CGPoint(x: 1 - p.y, y: p.x)
+        default: return p
+        }
+    }
 
     public init(deviceID: UUID, log: @escaping (String) -> Void) {
         self.deviceID = deviceID
@@ -113,11 +145,11 @@ public final class CoreDeviceInput {
     public func touch(_ phase: Phase, x: Double, y: Double, edge: Edge = .none) {
         queue.async {
             guard let digitizer = self.digitizer else { return }
-            let p = CGPoint(x: min(max(x, 0), 1), y: min(max(y, 0), 1))
+            let p = Self.native(CGPoint(x: min(max(x, 0), 1), y: min(max(y, 0), 1)), rotation: self.rotation)
             self.lastPoint = p
             let type: DigitizerEventType = phase == .start ? .start : phase == .move ? .position : .end
             do {
-                try digitizer.send(pointOne: p, pointTwo: nil, eventType: type, edge: Self.digitizerEdge(edge), target: .mainScreen)
+                try digitizer.send(pointOne: p, pointTwo: nil, eventType: type, edge: Self.digitizerEdge(edge), target: self.digitizerTarget)
                 if phase == .end { digitizer.sendBarrier() }
             } catch { self.failed(error) }
         }
@@ -132,8 +164,8 @@ public final class CoreDeviceInput {
                 Thread.sleep(forTimeInterval: duration / Double(steps))
                 let t = Double(i) / Double(steps)
                 guard let d = self.digitizer else { return }
-                let p = CGPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t)
-                try? d.send(pointOne: p, pointTwo: nil, eventType: .position, edge: Self.digitizerEdge(edge), target: .mainScreen)
+                let p = Self.native(CGPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t), rotation: self.rotation)
+                try? d.send(pointOne: p, pointTwo: nil, eventType: .position, edge: Self.digitizerEdge(edge), target: self.digitizerTarget)
             }
             if hold > 0 { Thread.sleep(forTimeInterval: hold) }
         }
@@ -233,6 +265,48 @@ public enum CoreDeviceLookup {
             let name = (d["deviceProperties"] as? [String: Any])?["name"] as? String ?? ""
             return Device(identifier: id, name: name, udid: hw["udid"] as? String ?? "")
         }
+    }
+
+    public struct Display {
+        public var id: Int
+        public var uniqueID: String
+        public var active: Bool
+        public var primary: Bool
+        /// Current UI rotation in degrees (devicectl's rot0/rot90/rot180/rot270).
+        public var rotation: Int
+    }
+
+    /// Displays of one device (foldables have several), from `devicectl device info displays`.
+    public static func displays(udid: String) -> [Display] {
+        guard let obj = devicectlJSON(["device", "info", "displays", "--device", udid]),
+              let list = (obj["result"] as? [String: Any])?["displays"] as? [[String: Any]] else { return [] }
+        return list.compactMap { d in
+            guard let id = d["displayId"] as? Int, let unique = d["uniqueId"] as? String else { return nil }
+            let rot = Int((d["currentOrientation"] as? String ?? "rot0").dropFirst(3)) ?? 0
+            return Display(id: id, uniqueID: unique, active: d["active"] as? Bool ?? false,
+                           primary: d["primary"] as? Bool ?? false, rotation: rot)
+        }
+    }
+
+    /// The display to show: the requested unique ID, else the active one (primary first).
+    public static func pickDisplay(udid: String, requested: String?) -> Display? {
+        let all = displays(udid: udid)
+        if let r = requested, r != "auto" { return all.first { $0.uniqueID == r || String($0.id) == r } }
+        return all.first { $0.active && $0.primary } ?? all.first { $0.active } ?? all.first { $0.primary }
+    }
+
+    static func devicectlJSON(_ args: [String]) -> [String: Any]? {
+        let out = FileManager.default.temporaryDirectory.appendingPathComponent("ios-remote-screen-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: out) }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        p.arguments = ["devicectl"] + args + ["--quiet", "--json-output", out.path]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        do { try p.run() } catch { return nil }
+        p.waitUntilExit()
+        guard let data = try? Data(contentsOf: out) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
     /// Matches `query` against identifier, UDID or name (case-insensitive substring); nil picks the only device.

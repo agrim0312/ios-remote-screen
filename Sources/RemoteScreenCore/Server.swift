@@ -150,6 +150,14 @@ public final class RelayServer {
             queue.asyncAfter(deadline: .now() + 0.3) { onShutdown() }
             return
         }
+        if ProcessInfo.processInfo.environment["IRS_DEBUG"] == "1", let backend = backend as? UsbScreenBackend,
+           let data = text.data(using: .utf8), let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+           obj["t"] as? String == "debugDisplay" {
+            // Development aid for new device types: override the touch display and rotation.
+            backend.input?.setDisplay(id: obj["id"] as? Int ?? 0, rotation: obj["rotation"] as? Int ?? 0)
+            log("debug: touch display \(obj["id"] ?? 0), rotation \(obj["rotation"] ?? 0)")
+            return
+        }
         guard !options.viewOnly, let message = ControlMessage.parse(text) else { return }
         backend.handle(message)
     }

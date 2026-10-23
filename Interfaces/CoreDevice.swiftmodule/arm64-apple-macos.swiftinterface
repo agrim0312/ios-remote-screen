@@ -63,6 +63,10 @@ public enum DigitizerEdge {
 
 public enum DigitizerTarget {
   case mainScreen
+  case display1
+  case display2
+  case display3
+  case display4
 }
 
 public enum HIDButtonState {

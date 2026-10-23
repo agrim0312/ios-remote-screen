@@ -25,6 +25,8 @@ public final class UsbScreenBackend: NSObject, RelayBackend, AVCaptureVideoDataO
         public var video: String = "auto"
         /// UDID for `devicectl` screenshots.
         public var udid: String?
+        /// Screenshot mode: which display to show ("auto" = the active one; foldables have two).
+        public var display: String = "auto"
         public init() {}
     }
 
@@ -222,10 +224,24 @@ public final class UsbScreenBackend: NSObject, RelayBackend, AVCaptureVideoDataO
         lock.withLock { deviceName = udid }
         let path = FileManager.default.temporaryDirectory.appendingPathComponent("ios-remote-screen-shot-\(getpid()).png").path
         Thread.detachNewThread { [weak self] in
+            var display: CoreDeviceLookup.Display?
+            var lastDisplayCheck = Date.distantPast
             while let self {
+                // Re-check which display is active (unfolding a foldable switches it) every 10 s.
+                if Date().timeIntervalSince(lastDisplayCheck) > 10 {
+                    lastDisplayCheck = Date()
+                    let picked = CoreDeviceLookup.pickDisplay(udid: udid, requested: self.options.display)
+                    if let picked, picked.uniqueID != display?.uniqueID || picked.rotation != display?.rotation {
+                        self.log("Showing display \(picked.id) (\(picked.uniqueID), rotation \(picked.rotation))")
+                        self.input?.setDisplay(id: picked.primary ? 0 : picked.id, rotation: picked.rotation)
+                    }
+                    display = picked ?? display
+                }
                 let p = Process()
                 p.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
-                p.arguments = ["devicectl", "device", "capture", "screenshot", "--device", udid, "--destination", path, "--quiet"]
+                var args = ["devicectl", "device", "capture", "screenshot", "--device", udid, "--destination", path, "--quiet"]
+                if let display { args += ["--display-unique-id", display.uniqueID] }
+                p.arguments = args
                 p.standardOutput = FileHandle.nullDevice
                 p.standardError = FileHandle.nullDevice
                 do { try p.run() } catch { self.log("devicectl failed: \(error)"); Thread.sleep(forTimeInterval: 2); continue }

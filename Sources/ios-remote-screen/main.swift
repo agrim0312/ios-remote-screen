@@ -22,6 +22,8 @@ Sources:
   --source mirroring  The macOS iPhone Mirroring window (needs the same Apple Account)
   --device D          usb: device name, UDID or CoreDevice identifier (default: the only one)
   --max-width W       usb: downscale frames wider than W pixels (default: native)
+  --display D         usb screenshot video: display unique ID or number, or auto (default: the
+                      active display; foldables such as iPhone Duo have two)
   --video V           usb: auto (default), usb (CoreMediaIO, needs Camera permission) or
                       screenshot (devicectl, ~1 fps, works from SSH sessions without permissions)
 
@@ -77,6 +79,7 @@ while !args.isEmpty {
     case "--video":
         usbOptions.video = value(a)
         guard ["auto", "usb", "screenshot"].contains(usbOptions.video) else { log("invalid --video"); exit(2) }
+    case "--display": usbOptions.display = value(a)
     case "--max-width":
         guard let w = Int(value(a)), w >= 0 else { log("invalid --max-width"); exit(2) }
         usbOptions.maxWidth = w

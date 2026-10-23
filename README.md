@@ -76,6 +76,7 @@ swift build -c release
 | `--port N` | 8765 | Loopback port |
 | `--token T` / `--no-token` | random | Access token for the page and the WebSocket |
 | `--video auto\|usb\|screenshot` | auto | `usb` uses CoreMediaIO (needs Camera permission). `screenshot` uses `devicectl` at about 1 fps. `auto` picks `usb` when permission is granted. |
+| `--display D` | auto | Screenshot video on multi-display devices (foldables like iPhone Duo): a display unique ID or number. `auto` follows the active display. Touches go to that display and are rotated to match. |
 | `--fps N`, `--quality Q`, `--max-width W` | 30, 0.6, native | Stream size and rate |
 | `--view-only` | off | Ignore all input |
 | `--allow-shutdown` | off | Show the **Stop session** button |
@@ -107,7 +108,7 @@ If an Xcode update breaks the private interfaces, regenerate the symbol lists fr
 ## Limitations
 
 - These are private APIs, and Xcode updates can break them.
-- Only one finger, on the portrait coordinate system. Landscape apps are untested.
+- Only one finger. Rotation is handled for screenshot video (tested on iPhone Duo's inner display in landscape); USB-capture video assumes portrait.
 - Typing covers US-layout ASCII. Other characters are skipped.
 - Phones show the clean 9:41 status bar while they are being captured.
 - The screenshot fallback runs at about 1 fps.
