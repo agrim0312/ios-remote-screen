@@ -67,6 +67,8 @@ final class ControlTests: XCTestCase {
         XCTAssertEqual(ControlMessage.parse(#"{"t":"text","s":"héllo"}"#), .text("héllo"))
         XCTAssertEqual(ControlMessage.parse(#"{"t":"key","code":"KeyA","mods":["command","bogus"]}"#), .key(code: "KeyA", modifiers: [.command]))
         XCTAssertEqual(ControlMessage.parse(#"{"t":"action","name":"appSwitcher"}"#), .action(.appSwitcher))
+        XCTAssertEqual(ControlMessage.parse(#"{"t":"display","display":"123-456-789"}"#), .display("123-456-789"))
+        XCTAssertNil(ControlMessage.parse(#"{"t":"display","display":""}"#))
     }
 
     func testRejectsMalformedMessages() {

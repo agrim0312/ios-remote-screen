@@ -65,6 +65,11 @@ public final class UsbScreenBackend: NSObject, RelayBackend, AVCaptureVideoDataO
                 "device": deviceName as Any? ?? NSNull(),
                 "cameraAuthorization": Self.authorizationName(AVCaptureDevice.authorizationStatus(for: .video)),
                 "coreDevice": input?.deviceID.uuidString as Any? ?? NSNull(),
+                "displayMode": requestedDisplay ?? options.display,
+                "shownDisplay": shownDisplay?.uniqueID as Any? ?? NSNull(),
+                "displays": knownDisplays.map {
+                    ["id": $0.id, "uniqueID": $0.uniqueID, "active": $0.active, "primary": $0.primary, "rotation": $0.rotation] as [String: Any]
+                },
             ]
         }
     }
@@ -121,6 +126,11 @@ public final class UsbScreenBackend: NSObject, RelayBackend, AVCaptureVideoDataO
     }
 
     private var screenshotting = false
+    // Mid-session display switching (foldables): what the viewer asked for, what is shown, and the list.
+    private var requestedDisplay: String?
+    private var displayDirty = false
+    private var knownDisplays: [CoreDeviceLookup.Display] = []
+    private var shownDisplay: CoreDeviceLookup.Display?
 
     private var useScreenshots: Bool {
         options.video == "screenshot" || (options.video == "auto" && AVCaptureDevice.authorizationStatus(for: .video) != .authorized)
@@ -227,15 +237,26 @@ public final class UsbScreenBackend: NSObject, RelayBackend, AVCaptureVideoDataO
             var display: CoreDeviceLookup.Display?
             var lastDisplayCheck = Date.distantPast
             while let self {
-                // Re-check which display is active (unfolding a foldable switches it) every 10 s.
-                if Date().timeIntervalSince(lastDisplayCheck) > 10 {
+                // Re-check displays every 10 s (folding switches the active one in auto mode), or right
+                // away when a viewer picks a different display.
+                let (dirty, requested) = self.lock.withLock { () -> (Bool, String) in
+                    let d = self.displayDirty
+                    self.displayDirty = false
+                    return (d, self.requestedDisplay ?? self.options.display)
+                }
+                if dirty || Date().timeIntervalSince(lastDisplayCheck) > 10 {
                     lastDisplayCheck = Date()
-                    let picked = CoreDeviceLookup.pickDisplay(udid: udid, requested: self.options.display)
+                    let all = CoreDeviceLookup.displays(udid: udid)
+                    let picked = CoreDeviceLookup.pick(from: all, requested: requested)
                     if let picked, picked.uniqueID != display?.uniqueID || picked.rotation != display?.rotation {
                         self.log("Showing display \(picked.id) (\(picked.uniqueID), rotation \(picked.rotation))")
                         self.input?.setDisplay(id: picked.primary ? 0 : picked.id, rotation: picked.rotation)
                     }
                     display = picked ?? display
+                    self.lock.withLock {
+                        if !all.isEmpty { self.knownDisplays = all }
+                        self.shownDisplay = display
+                    }
                 }
                 let p = Process()
                 p.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
@@ -293,6 +314,12 @@ public final class UsbScreenBackend: NSObject, RelayBackend, AVCaptureVideoDataO
             if modifiers.contains(.option) { mods.append(HIDKeyboard.leftOption) }
             if modifiers.contains(.control) { mods.append(HIDKeyboard.leftControl) }
             input.press(page: 0x07, usage: usage, modifiers: mods)
+        case let .display(d):
+            lock.withLock {
+                requestedDisplay = d
+                displayDirty = true
+            }
+            log("Viewer selected display \(d)")
         case let .action(action):
             switch action {
             case .home: input.pressHome()

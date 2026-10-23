@@ -22,6 +22,7 @@ public final class RelayServer {
 
     private let queue = DispatchQueue(label: "ios-remote-screen.server")
     private var listener: NWListener?
+    private var statusTimer: DispatchSourceTimer?
     private var clients: [ObjectIdentifier: WSClient] = [:]
 
     public init(options: Options, backend: RelayBackend, log: @escaping (String) -> Void) {
@@ -48,6 +49,16 @@ public final class RelayServer {
         }
         listener.start(queue: queue)
         self.listener = listener
+        // Keep viewers' status (input availability, displays) current.
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 3, repeating: .seconds(3))
+        timer.setEventHandler { [weak self] in
+            guard let self, !self.clients.isEmpty else { return }
+            let status = self.statusString()
+            for client in self.clients.values { client.sendText(status) }
+        }
+        timer.resume()
+        statusTimer = timer
     }
 
     /// Fans a frame out to every viewer that is not still sending the previous one (drops, never queues).

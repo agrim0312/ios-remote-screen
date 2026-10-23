@@ -76,7 +76,7 @@ swift build -c release
 | `--port N` | 8765 | Loopback port |
 | `--token T` / `--no-token` | random | Access token for the page and the WebSocket |
 | `--video auto\|usb\|screenshot` | auto | `usb` uses CoreMediaIO (needs Camera permission). `screenshot` uses `devicectl` at about 1 fps. `auto` picks `usb` when permission is granted. |
-| `--display D` | auto | Screenshot video on multi-display devices (foldables like iPhone Duo): a display unique ID or number. `auto` follows the active display. Touches go to that display and are rotated to match. |
+| `--display D` | auto | Screenshot video on multi-display devices (foldables like iPhone Duo): a display unique ID or number. `auto` follows the active display. Touches go to that display and are rotated to match. You can also switch displays mid-session from the viewer's **display menu**, which appears when the device has more than one screen. |
 | `--fps N`, `--quality Q`, `--max-width W` | 30, 0.6, native | Stream size and rate |
 | `--view-only` | off | Ignore all input |
 | `--allow-shutdown` | off | Show the **Stop session** button |

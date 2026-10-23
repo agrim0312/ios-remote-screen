@@ -15,6 +15,7 @@ enum WebAssets {
   header h1 { font-size:15px; margin:0 12px 0 0; }
   button { font:inherit; padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--fg); cursor:pointer; }
   button:hover { border-color:var(--accent); }
+  select { font:inherit; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--fg); }
   button.danger { color:#ff453a; }
   button.danger:hover { border-color:#ff453a; }
   #status { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
@@ -31,6 +32,7 @@ enum WebAssets {
   <button data-action="home" title="Cmd-1 in iPhone Mirroring">Home</button>
   <button data-action="appSwitcher" title="Cmd-2 in iPhone Mirroring">App Switcher</button>
   <button data-action="spotlight" title="Cmd-3 in iPhone Mirroring">Spotlight</button>
+  <select id="display" hidden title="Which screen to show and control (foldables have two)"></select>
   <span class="hint">Click the screen to type</span>
   <button id="stop" class="danger" hidden title="Stop the relay on the server and close the tunnel">Stop session</button>
   <span id="status">connecting…</span>
@@ -47,6 +49,25 @@ enum WebAssets {
   const statusEl = document.getElementById("status");
   const empty = document.getElementById("empty");
   const stopBtn = document.getElementById("stop");
+  const displaySel = document.getElementById("display");
+  let displaysKey = "";
+  function updateDisplays(msg) {
+    const list = msg.displays || [];
+    if (list.length < 2) { displaySel.hidden = true; return; }
+    const key = JSON.stringify(list.map((d) => [d.uniqueID, d.active])) + msg.displayMode + msg.shownDisplay;
+    if (key === displaysKey) return;
+    displaysKey = key;
+    displaySel.innerHTML = "";
+    const add = (value, label) => { const o = document.createElement("option"); o.value = value; o.textContent = label; displaySel.appendChild(o); };
+    const shown = list.find((d) => d.uniqueID === msg.shownDisplay);
+    add("auto", "Auto (active screen)" + (msg.displayMode === "auto" && shown ? ` — display ${shown.id}` : ""));
+    for (const d of list) {
+      add(d.uniqueID, `Display ${d.id}${d.primary ? " (main)" : ""}${d.active ? " · on" : " · off"}`);
+    }
+    displaySel.value = msg.displayMode === "auto" ? "auto" : (list.find((d) => d.uniqueID === msg.displayMode || String(d.id) === msg.displayMode)?.uniqueID || "auto");
+    displaySel.hidden = false;
+  }
+  displaySel.addEventListener("change", () => { send({ t: "display", display: displaySel.value }); displaysKey = ""; });
   let stopped = false;
   function showStopped() {
     statusEl.textContent = "session stopped";
@@ -68,7 +89,7 @@ enum WebAssets {
     ws.onmessage = (ev) => {
       if (typeof ev.data === "string") {
         const msg = JSON.parse(ev.data);
-        if (msg.t === "status") { server = msg; stopBtn.hidden = !msg.allowShutdown; render(); }
+        if (msg.t === "status") { server = msg; stopBtn.hidden = !msg.allowShutdown; updateDisplays(msg); render(); }
         if (msg.t === "stopped") { stopped = true; showStopped(); }
         return;
       }

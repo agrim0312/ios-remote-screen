@@ -290,7 +290,10 @@ public enum CoreDeviceLookup {
 
     /// The display to show: the requested unique ID, else the active one (primary first).
     public static func pickDisplay(udid: String, requested: String?) -> Display? {
-        let all = displays(udid: udid)
+        pick(from: displays(udid: udid), requested: requested)
+    }
+
+    public static func pick(from all: [Display], requested: String?) -> Display? {
         if let r = requested, r != "auto" { return all.first { $0.uniqueID == r || String($0.id) == r } }
         return all.first { $0.active && $0.primary } ?? all.first { $0.active } ?? all.first { $0.primary }
     }

@@ -8,6 +8,8 @@ public enum ControlMessage: Equatable {
     case text(String)
     case key(code: String, modifiers: Set<KeyModifier>)
     case action(DeviceAction)
+    /// Switch the shown/touched display mid-session: "auto", a display number or unique ID.
+    case display(String)
 
     public enum PointerPhase: String { case down, move, up }
 
@@ -38,6 +40,9 @@ public enum ControlMessage: Equatable {
             guard let code = obj["code"] as? String else { return nil }
             let mods = Set(((obj["mods"] as? [String]) ?? []).compactMap(KeyModifier.init(rawValue:)))
             return .key(code: code, modifiers: mods)
+        case "display":
+            guard let d = obj["display"] as? String, !d.isEmpty, d.count <= 64 else { return nil }
+            return .display(d)
         case "action":
             guard let name = obj["name"] as? String, let action = DeviceAction(rawValue: name) else { return nil }
             return .action(action)

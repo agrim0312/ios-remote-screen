@@ -119,6 +119,8 @@ public final class InputInjector {
                 return
             }
             pressKey(keyCode, flags: KeyMap.flags(modifiers))
+        case .display:
+            break // The iPhone Mirroring window has a single display.
         case let .action(action):
             ensureFrontmost()
             let (code, mods) = action.shortcut
